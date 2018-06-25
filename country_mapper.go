@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"net/http"
 	"strings"
+	"os"
 )
 
 const (
@@ -189,6 +190,64 @@ func Load(specifiedURL ...string) (*CountryInfoClient, error) {
 
 	return &CountryInfoClient{Data: recordList}, nil
 }
+
+
+func readCSVFromFile(filename string) ([][]string, error) {
+
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	reader := csv.NewReader(f)
+	reader.Comma = ';'
+	data, err := reader.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func LoadFromFile(filename string) (*CountryInfoClient, error) {
+	data, err := readCSVFromFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	recordList := []*CountryInfo{}
+	for idx, row := range data {
+		// skip header
+		if idx == 0 {
+			continue
+		}
+
+		// get name
+		name := strings.Split(row[0], ",")[:1][0]
+
+		// use commonly used & altSpellings names as AlternateNames
+		alternateNames := strings.Split(row[0], ",")[1:]
+		alternateNames = append(alternateNames, strings.Split(row[8], ",")...)
+
+		record := &CountryInfo{
+			Name:           name,
+			AlternateNames: alternateNames,
+			Alpha2:         row[2],
+			Alpha3:         row[4],
+			Capital:        row[7],
+			Currency:       strings.Split(row[5], ","),
+			CallingCode:    strings.Split(row[6], ","),
+			Region:         row[10],
+			Subregion:      row[11],
+		}
+
+		recordList = append(recordList, record)
+	}
+
+	return &CountryInfoClient{Data: recordList}, nil
+}
+
 
 func stringInSlice(a string, list []string) bool {
 	for _, b := range list {
